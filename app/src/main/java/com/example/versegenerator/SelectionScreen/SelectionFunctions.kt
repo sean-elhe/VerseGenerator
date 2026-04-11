@@ -1,5 +1,7 @@
 package com.example.versegenerator.SelectionScreen
 
+import android.graphics.drawable.Icon
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,10 +10,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -22,6 +27,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
@@ -34,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -43,8 +50,10 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.versegenerator.ViewModels.StyleConfig
 import com.example.versegenerator.ViewModels.ThemeConfig
 import com.example.versegenerator.ViewModels.VerseViewModel
+import kotlinx.coroutines.flow.StateFlow
 
 import kotlin.math.roundToInt
 
@@ -58,14 +67,19 @@ data class VerseDisplay(
 @Composable
 fun SelectionMenu(viewModel: VerseViewModel,
                   books: List<String>,
+                  book: String,
                   chapters: List<String>,
+                  chapter: Int,
                   difficulties: List<String>,
-                  isDark: Boolean){
-    // State to control if the menu is open
+                  difficulty: String,
+                  translation: String,
+                  isDark: Boolean,
+                  isRandom: Boolean,
+                  currentIndex: Int){
     var menuExpanded by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.padding(15.dp)) {
-        // The Trigger (The button users click to see the menu)
+
         IconButton(onClick = { menuExpanded = true }) {
             Icon(Icons.Default.Settings, contentDescription = "Open Settings")
         }
@@ -74,42 +88,66 @@ fun SelectionMenu(viewModel: VerseViewModel,
         DropdownMenu(
             expanded = menuExpanded,
             onDismissRequest = { menuExpanded = false },
-            modifier = Modifier.width(250.dp) // Set a width so it looks consistent
+            modifier = Modifier.width(300.dp) // Set a width so it looks consistent
         ) {
             // We wrap your Column in a Column with padding inside the Menu
             Column(modifier = Modifier.padding(5.dp)) {
 
                 // --- YOUR EXISTING UI ---
-                SimpleDropdown(
+                SelectionDropdown(
                     label = "Translation",
                     options = viewModel.translations,
-                    selectedOption = viewModel.selectedTranslation,
-                    onOptionSelected = { viewModel.selectedTranslation = it }
+                    selectedOption = translation,
+                    onOptionSelected = { newTranslation ->
+                        viewModel.updateTranslation(newTranslation)
+                    }
                 )
 
-                SimpleDropdown(
+                SelectionDropdown(
                     label = "Difficulty",
                     options = difficulties,
-                    selectedOption = viewModel.selectedDifficulty,
-                    onOptionSelected = { viewModel.selectedDifficulty = it }
+                    selectedOption = difficulty,
+                    onOptionSelected = { newDifficulty ->
+                        viewModel.updateDifficulty(newDifficulty)
+                    }
                 )
 
-                SimpleDropdown(
+                SelectionDropdown(
                     label = "Book",
                     options = books,
-                    selectedOption = viewModel.selectedBook,
-                    onOptionSelected = { viewModel.selectedBook = it }
+                    selectedOption = book,
+                    onOptionSelected = { newBook ->
+                        viewModel.updateBook(newBook)
+                    }
                 )
 
-                SimpleDropdown(
+                SelectionDropdown(
                     label = "Chapter",
                     options = chapters,
-                    selectedOption = viewModel.selectedChapter.toString(),
-                    onOptionSelected = { viewModel.selectedChapter = it.toInt() }
+                    selectedOption = chapter.toString(),
+                    onOptionSelected = { newChapter ->
+                        viewModel.updateChapter(newChapter.toInt())
+                    }
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(15.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(if (isRandom) "Random" else "Order", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.padding(10.dp))
+                    Switch(
+                        checked = isRandom,
+                        onCheckedChange = { isChecked ->
+                            val newStyle = if (isChecked) StyleConfig.RANDOM else StyleConfig.ORDER
+                            viewModel.updateStyle(newStyle)
+                            viewModel.resetIndex()
+                        }
+                    )
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(15.dp),
                     horizontalArrangement = Arrangement.Center,
@@ -132,7 +170,7 @@ fun SelectionMenu(viewModel: VerseViewModel,
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SimpleDropdown(
+fun SelectionDropdown(
     label: String,
     options: List<String>,
     selectedOption: String,
@@ -151,10 +189,6 @@ fun SimpleDropdown(
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth().padding(horizontal = 50.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedTextColor = Color.Black,
-                focusedTextColor = Color.Black
-            )
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -170,6 +204,22 @@ fun SimpleDropdown(
                 )
             }
         }
+    }
+}
+
+@Composable
+fun SelectionButton(clicked: () -> Unit, icon: ImageVector) {
+    OutlinedIconButton(
+        onClick = clicked,
+        modifier = Modifier.padding(5.dp),
+//        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(width = 2.dp, color = Color.DarkGray)
+    ) {
+        Icon(
+            imageVector = icon,
+            modifier = Modifier.size(100.dp).padding(5.dp),
+            contentDescription = null
+        )
     }
 }
 

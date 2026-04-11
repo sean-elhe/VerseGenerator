@@ -2,7 +2,6 @@ package com.example.versegenerator.ViewModels
 
 import android.app.Application
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -14,16 +13,36 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class VerseViewModel(private val bibleDao: BibleDao,
                         application: Application): AndroidViewModel(application) {
     private val settingsManager = SettingsManager(application)
 
+// NAVIGATION
+    fun nextVerse(totalVerses: Int){
+        if (_currentVerseIndex.value < totalVerses - 1) {
+            _currentVerseIndex.value++
+        } else {
+            resetIndex()
+        }
+    }
+    fun previousVerse(){
+        if (_currentVerseIndex.value > 0) {
+            _currentVerseIndex.value-- }
+    }
+// RELOAD
+    val _reloadTrigger = MutableStateFlow(0)
+    val reloadTrigger = _reloadTrigger.asStateFlow()
+    fun reloadTrigger(){
+        _reloadTrigger.value++
+    }
 // THEME
     val themeConfig: StateFlow<ThemeConfig> = settingsManager.themeFlow
         .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000),
@@ -33,24 +52,49 @@ class VerseViewModel(private val bibleDao: BibleDao,
             settingsManager.saveTheme(newConfig)
         }
     }
+// STYLE
+    val styleConfig: StateFlow<StyleConfig> = settingsManager.styleFlow
+        .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000),
+            initialValue = StyleConfig.ORDER)
+    fun updateStyle(newConfig: StyleConfig) {
+        viewModelScope.launch {
+            settingsManager.saveStyle(newConfig)
+        }
+    }
  // DIFFICULTIES
     val difficultiesText = listOf<String>("Easy", "Medium", "Hard")
-    var selectedDifficulty by mutableStateOf("Easy")
-
+    var selectedDifficulty = settingsManager.difficultyFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Easy")
+    fun updateDifficulty(newDifficulty: String){
+        viewModelScope.launch {
+            settingsManager.saveDifficulty(newDifficulty)
+        }
+    }
 // TRANSLATIONS
-    var selectedTranslation by mutableStateOf("NIV")
     val translations = listOf<String>("NIV", "ESV", "NLT")
+    val selectedTranslation = settingsManager.translationFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "NIV")
+    fun updateTranslation(newTranslation: String){
+        viewModelScope.launch {
+            settingsManager.saveTranslation(newTranslation)
+        }
+    }
 // BOOKS
-    var selectedBook by mutableStateOf("Genesis")
     val booksList = bibleDao.getAllBooks()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
-// CHAPTERS
-    var selectedChapter by mutableStateOf(1)
-    val chaptersList = snapshotFlow { selectedBook }
+    var selectedBook = settingsManager.bookFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Genesis")
+    fun updateBook(newBook: String){
+        viewModelScope.launch {
+            settingsManager.saveBook(newBook)
+        }
+    }
+    // CHAPTERS
+    val chaptersList = selectedBook
         .flatMapLatest { book ->
             bibleDao.getChapterCount(book)
         }
@@ -60,37 +104,29 @@ class VerseViewModel(private val bibleDao: BibleDao,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
-    val currentChapter = snapshotFlow {
-        Triple(selectedTranslation, selectedBook, selectedChapter) }
-        .flatMapLatest { (t, b, c) ->
-            bibleDao.getVersesOrder(t, b, c)
+    var selectedChapter = settingsManager.chapterFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1)
+    fun updateChapter(newChapter: Int){
+        viewModelScope.launch {
+            settingsManager.saveChaper(newChapter)
         }
-        .onEach {
-            _currentVerseIndex.value = 0
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
-    val currentChapterRandom = snapshotFlow {
-        Triple(selectedTranslation, selectedBook, selectedChapter) }
-        .flatMapLatest { (t, b, c) ->
-            bibleDao.getVersesRandom(t, b, c)
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    }
+
+// ORDERING
+    val versesByOrder = combine(
+        selectedTranslation,          // Flow 1
+        selectedBook, // Flow 2 (Converts Compose state to Flow)
+        selectedChapter // Flow 3
+    ) { t, b, c ->
+        Triple(t, b, c)
+    }.flatMapLatest { (t, b, c) ->
+        // Every time T, B, or C changes, this triggers a new Room query
+        bibleDao.getVersesOrder(t, b, c)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
 // INDEX
     private val _currentVerseIndex = MutableStateFlow(0)
     val currentVerseIndex = _currentVerseIndex.asStateFlow()
-    fun nextVerse(totalVerses: Int){
-        if (_currentVerseIndex.value < totalVerses - 1) {
-            _currentVerseIndex.value++
-        }
-    }
     fun resetIndex(){
         _currentVerseIndex.value = 0
     }
@@ -98,4 +134,7 @@ class VerseViewModel(private val bibleDao: BibleDao,
 
 enum class ThemeConfig{
     FOLLOW_SYSTEM, LIGHT, DARK
+}
+enum class StyleConfig{
+    ORDER, RANDOM
 }

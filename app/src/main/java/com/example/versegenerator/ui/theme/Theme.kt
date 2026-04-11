@@ -12,13 +12,13 @@ import com.example.versegenerator.ViewModels.ThemeConfig
 
 private val DarkColorScheme = darkColorScheme(
     primary = Color.DarkGray,
-    onPrimary = Color.Gray,
-    background = LightPaperBackground,
-    onBackground = Color(0xFF2C2C2C), // Soft Charcoal instead of Black
-    surface = LightPaperSurface,
-    onSurface = Color.White,
-    surfaceVariant = Color(0xFFF2EFE4), // Perfect for your settings card
-    onSurfaceVariant = Color(0xFF4E4E4E)
+    onPrimary = Color.LightGray,
+    background = Color.DarkGray,
+    onBackground = Color.LightGray, // Soft Charcoal instead of Black
+    surface = Color.DarkGray,
+    onSurface = Color.LightGray,
+    surfaceVariant = Color.DarkGray, // Perfect for your settings card
+    onSurfaceVariant = Color.LightGray
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -32,11 +32,6 @@ private val LightColorScheme = lightColorScheme(
     onSurfaceVariant = Color(0xFF4E4E4E)
 )
 
-private val LightColorScheme2 = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
     /* Other default colors to override
     background = Color(0xFFFFFBFE),
     surface = Color(0xFFFFFBFE),
@@ -46,7 +41,7 @@ private val LightColorScheme2 = lightColorScheme(
     onBackground = Color(0xFF1C1B1F),
     onSurface = Color(0xFF1C1B1F),
     */
-)
+
 
 @Composable
 fun VerseGeneratorTheme(

@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
 
             VerseGeneratorTheme(themeConfig) {
                 Surface(color = MaterialTheme.colorScheme.background) {
+//                    SecondScreen(viewModel, Modifier)
                     AppNavigation(viewModel, themeConfig)
                 }
                 }
@@ -56,7 +57,7 @@ class MainActivity : ComponentActivity() {
     }
 
 @Composable
-fun AppNavigation (viewModel: VerseViewModel, themeConfig: ThemeConfig){
+fun AppNavigation (viewModel: VerseViewModel, themeConfig: ThemeConfig) {
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = "second") {
@@ -66,5 +67,5 @@ fun AppNavigation (viewModel: VerseViewModel, themeConfig: ThemeConfig){
                 viewModel = viewModel
             )
         }
-        }
     }
+}
