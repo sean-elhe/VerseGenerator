@@ -11,13 +11,13 @@ import com.example.versegenerator.ViewModels.ThemeConfig
 // Paper Mode Colors
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color.DarkGray,
+    primary = Color.Black,
     onPrimary = Color.LightGray,
-    background = Color.DarkGray,
+    background = Color.Black,
     onBackground = Color.LightGray, // Soft Charcoal instead of Black
-    surface = Color.DarkGray,
+    surface = Color.Black,
     onSurface = Color.LightGray,
-    surfaceVariant = Color.DarkGray, // Perfect for your settings card
+    surfaceVariant = Color.Black, // Perfect for your settings card
     onSurfaceVariant = Color.LightGray
 )
 
@@ -26,21 +26,12 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = Color.Black,
     background = LightPaperBackground,
     onBackground = Color(0xFF2C2C2C), // Soft Charcoal instead of Black
-    surface = LightPaperSurface,
+    surface = LightPaperPrimary,
     onSurface = Color(0xFF2C2C2C),
     surfaceVariant = Color(0xFFF2EFE4), // Perfect for your settings card
     onSurfaceVariant = Color(0xFF4E4E4E)
 )
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
 
 
 @Composable

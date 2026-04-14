@@ -2,7 +2,9 @@ package com.example.versegenerator.ViewModels
 
 import android.app.Application
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.AndroidViewModel
@@ -12,6 +14,7 @@ import com.example.versegenerator.data.BibleDao
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -24,6 +27,17 @@ import kotlinx.coroutines.launch
 class VerseViewModel(private val bibleDao: BibleDao,
                         application: Application): AndroidViewModel(application) {
     private val settingsManager = SettingsManager(application)
+    var stage = mutableIntStateOf(1)
+
+// INPUT
+
+    val inputConfig: StateFlow<InputConfig>  = settingsManager.inputFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputConfig.ENABlED)
+    fun updateInput(newConfig: InputConfig) {
+        viewModelScope.launch {
+            settingsManager.saveInput(newConfig)
+        }
+    }
 
 // NAVIGATION
     fun nextVerse(totalVerses: Int){
@@ -132,9 +146,20 @@ class VerseViewModel(private val bibleDao: BibleDao,
     }
 }
 
+var userGuess by mutableStateOf(mapOf<Int, String>())
+var resultShown by mutableStateOf(false)
+
+fun updateGuess(index: Int, text: String){
+    userGuess = userGuess + (index to text)
+}
+
 enum class ThemeConfig{
     FOLLOW_SYSTEM, LIGHT, DARK
 }
 enum class StyleConfig{
     ORDER, RANDOM
+}
+
+enum class InputConfig{
+    ENABlED, DISABLED
 }

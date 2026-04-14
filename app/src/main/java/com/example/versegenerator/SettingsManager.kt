@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.versegenerator.ViewModels.InputConfig
 import com.example.versegenerator.ViewModels.StyleConfig
 import com.example.versegenerator.ViewModels.ThemeConfig
 import kotlinx.coroutines.flow.Flow
@@ -18,6 +19,7 @@ class SettingsManager(context: Context) {
     companion object {
         val THEME_KEY = stringPreferencesKey("theme_config")
         val STYLE_KEY = stringPreferencesKey("style_config")
+        val INPUT_KEY = stringPreferencesKey("input_config")
         val TRANSLATION_KEY = stringPreferencesKey("translation_config")
         val DIFFICULTY_KEY = stringPreferencesKey("difficulty_config")
         val BOOK_KEY = stringPreferencesKey("book_config")
@@ -71,6 +73,15 @@ class SettingsManager(context: Context) {
     suspend fun saveStyle(styleConfig: StyleConfig){
         dataStore.edit { preferences ->
             preferences[STYLE_KEY] = styleConfig.name
+        }
+    }
+    val inputFlow: Flow<InputConfig> = dataStore.data.map { preferences ->
+        val name = preferences[INPUT_KEY] ?: InputConfig.ENABlED.name
+        InputConfig.valueOf(name)
+    }
+    suspend fun saveInput(inputConfig: InputConfig){
+        dataStore.edit { preferences ->
+            preferences[INPUT_KEY] = inputConfig.name
         }
     }
 }
