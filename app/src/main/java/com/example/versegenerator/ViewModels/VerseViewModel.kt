@@ -4,30 +4,59 @@ import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.versegenerator.SettingsManager
 import com.example.versegenerator.data.BibleDao
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class VerseViewModel(private val bibleDao: BibleDao,
                         application: Application): AndroidViewModel(application) {
     private val settingsManager = SettingsManager(application)
     var stage = mutableIntStateOf(1)
+
+
+
+// QUERY
+
+    var bookQuery by mutableStateOf("")
+    var chapterQuery by mutableStateOf("")
+
+    val filteredBooks: StateFlow<List<String>> = snapshotFlow { bookQuery }
+        .debounce(300)
+        .distinctUntilChanged()
+        .flatMapLatest { query ->
+            if (query.isBlank()) flowOf(emptyList())
+            else bibleDao.searchBooks("$query%")
+        }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptyList()
+        )
+    fun bookChange(newQuery: String){
+        bookQuery = newQuery
+    }
+    fun chapterChange(newQuery: String) {
+        if (newQuery.all { it.isDigit() }) {
+            chapterQuery = newQuery
+        }
+    }
 
 // INPUT
 
@@ -115,7 +144,7 @@ class VerseViewModel(private val bibleDao: BibleDao,
         .map { count -> (1..count).map { it.toString() } }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.Eagerly,
             initialValue = emptyList()
         )
     var selectedChapter = settingsManager.chapterFlow
@@ -125,6 +154,25 @@ class VerseViewModel(private val bibleDao: BibleDao,
             settingsManager.saveChaper(newChapter)
         }
     }
+
+    val filteredChapters: StateFlow<List<Int>> = snapshotFlow { chapterQuery }
+        .combine(selectedBook) { query, book ->
+            query.trim() to book.trim()
+        }
+        .debounce(100)
+        .distinctUntilChanged()
+        .flatMapLatest { (query, book) ->
+            if (book.isBlank()) {
+                flowOf(emptyList())
+            } else {
+                bibleDao.searchChapter(query, book)
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
 // ORDERING
     val versesByOrder = combine(
@@ -146,12 +194,18 @@ class VerseViewModel(private val bibleDao: BibleDao,
     }
 }
 
+
+
+
+
 var userGuess by mutableStateOf(mapOf<Int, String>())
 var resultShown by mutableStateOf(false)
 
 fun updateGuess(index: Int, text: String){
     userGuess = userGuess + (index to text)
 }
+
+
 
 enum class ThemeConfig{
     FOLLOW_SYSTEM, LIGHT, DARK

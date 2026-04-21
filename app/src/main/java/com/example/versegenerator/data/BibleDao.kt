@@ -21,4 +21,15 @@ interface BibleDao {
 
     @Query("SELECT MAX(chapter) FROM verses WHERE book = :book")
     fun getChapterCount(book: String): Flow<Int>
+
+    @Query("SELECT DISTINCT book FROM verses WHERE book LIKE :searchQuery")
+    fun searchBooks(searchQuery: String): Flow<List<String>>
+
+    @Query("""
+    SELECT DISTINCT chapter FROM verses 
+    WHERE book = :book COLLATE NOCASE
+    AND (:searchQuery = '' OR CAST(chapter AS TEXT) LIKE :searchQuery || '%')
+    ORDER BY chapter ASC
+""")
+    fun searchChapter(searchQuery: String, book: String): Flow<List<Int>>
 }
