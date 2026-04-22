@@ -1,6 +1,9 @@
 package com.example.versegenerator.data
 
 import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,4 +35,19 @@ interface BibleDao {
     ORDER BY chapter ASC
 """)
     fun searchChapter(searchQuery: String, book: String): Flow<List<Int>>
+
+
+    // SAVED
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun addFavorite(favoriteVerse: List<FavoriteVerse>)
+
+    @Delete
+    fun removeFavorite(favoriteVerse: FavoriteVerse)
+
+    @Query("SELECT * FROM saved ORDER BY book_id ASC")
+    fun getFavorites(): Flow<List<FavoriteVerse>>
+
+
+
 }

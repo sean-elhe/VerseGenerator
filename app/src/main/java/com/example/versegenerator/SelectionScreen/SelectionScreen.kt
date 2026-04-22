@@ -1,7 +1,5 @@
 package com.example.versegenerator.SelectionScreen
 
-import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,10 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,14 +17,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -90,7 +80,6 @@ fun EnabledInput(viewModel: VerseViewModel, modifier: Modifier) {
                 elevation = CardDefaults.elevatedCardElevation(10.dp),
                 border = BorderStroke(width = 2.dp, Color.DarkGray)
             ) {
-
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 25.dp, start = 40.dp),
                     horizontalArrangement = Arrangement.Start
@@ -104,7 +93,7 @@ fun EnabledInput(viewModel: VerseViewModel, modifier: Modifier) {
                 Box(modifier = Modifier.fillMaxWidth().padding(10.dp)) {
                     YourVerseIE(stage, verseData)
                 }
-                SelectionButtons(viewModel, versesOrder)
+                SelectionButtonsLower(viewModel, versesOrder)
             }
         }
     } else {
@@ -173,14 +162,13 @@ fun DisabledInput(viewModel: VerseViewModel, modifier: Modifier) {
                     YourVerseID(stage, verseData.hiddenVerse, verseData.revealedVerse)
                 }
 
-                SelectionButtons(viewModel, versesOrder)
+                SelectionButtonsLower(viewModel, versesOrder)
             }
         }
     } else {
         CircularProgressIndicator()
     }
 }
-
 
 @Composable
  fun SelectionScreen(viewModel: VerseViewModel, modifier: Modifier) {
@@ -201,6 +189,8 @@ fun DisabledInput(viewModel: VerseViewModel, modifier: Modifier) {
     val isRandom = styleState == StyleConfig.RANDOM
     val inputState by viewModel.inputConfig.collectAsStateWithLifecycle()
     val isInput = inputState == InputConfig.ENABlED
+    val isSaved by viewModel.isSaved.collectAsState()
+    val shortcuts by viewModel.savedShortcuts.collectAsState()
 
     Column(
         modifier = Modifier
@@ -216,9 +206,8 @@ fun DisabledInput(viewModel: VerseViewModel, modifier: Modifier) {
                 difficulty, translation, isDark,
                 isRandom, isInput, versesOrder, stage,
             )
-            SelectionSearcher(modifier.weight(0.75f), viewModel, book, chapter)
-//            SelectionSearch(modifier.weight(0.75f), viewModel, book, chapter
-//            )
+            SelectionSearcher(modifier.weight(0.75f), viewModel, book, chapter,
+                isSaved, shortcuts)
         }
 
         if (isInput) {

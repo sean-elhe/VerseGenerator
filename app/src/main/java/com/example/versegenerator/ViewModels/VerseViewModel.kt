@@ -10,7 +10,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.versegenerator.SettingsManager
 import com.example.versegenerator.data.BibleDao
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +18,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -30,10 +28,7 @@ class VerseViewModel(private val bibleDao: BibleDao,
     private val settingsManager = SettingsManager(application)
     var stage = mutableIntStateOf(1)
 
-
-
 // QUERY
-
     var bookQuery by mutableStateOf("")
     var chapterQuery by mutableStateOf("")
 
@@ -58,64 +53,9 @@ class VerseViewModel(private val bibleDao: BibleDao,
         }
     }
 
-// INPUT
-
-    val inputConfig: StateFlow<InputConfig>  = settingsManager.inputFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputConfig.ENABlED)
-    fun updateInput(newConfig: InputConfig) {
-        viewModelScope.launch {
-            settingsManager.saveInput(newConfig)
-        }
-    }
-
-// NAVIGATION
-    fun nextVerse(totalVerses: Int){
-        if (_currentVerseIndex.value < totalVerses - 1) {
-            _currentVerseIndex.value++
-        } else {
-            resetIndex()
-        }
-    }
-    fun previousVerse(){
-        if (_currentVerseIndex.value > 0) {
-            _currentVerseIndex.value-- }
-    }
-// RELOAD
-    val _reloadTrigger = MutableStateFlow(0)
-    val reloadTrigger = _reloadTrigger.asStateFlow()
-    fun reloadTrigger(){
-        _reloadTrigger.value++
-    }
-// THEME
-    val themeConfig: StateFlow<ThemeConfig> = settingsManager.themeFlow
-        .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000),
-            initialValue = ThemeConfig.FOLLOW_SYSTEM)
-    fun updateTheme(newConfig: ThemeConfig) {
-        viewModelScope.launch {
-            settingsManager.saveTheme(newConfig)
-        }
-    }
-// STYLE
-    val styleConfig: StateFlow<StyleConfig> = settingsManager.styleFlow
-        .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000),
-            initialValue = StyleConfig.ORDER)
-    fun updateStyle(newConfig: StyleConfig) {
-        viewModelScope.launch {
-            settingsManager.saveStyle(newConfig)
-        }
-    }
- // DIFFICULTIES
-    val difficultiesText = listOf<String>("Easy", "Medium", "Hard")
-    var selectedDifficulty = settingsManager.difficultyFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Easy")
-    fun updateDifficulty(newDifficulty: String){
-        viewModelScope.launch {
-            settingsManager.saveDifficulty(newDifficulty)
-        }
-    }
 // TRANSLATIONS
     val translations = listOf<String>("NIV", "ESV", "NLT")
-    val selectedTranslation = settingsManager.translationFlow
+    var selectedTranslation = settingsManager.translationFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "NIV")
     fun updateTranslation(newTranslation: String){
         viewModelScope.launch {
@@ -136,7 +76,8 @@ class VerseViewModel(private val bibleDao: BibleDao,
             settingsManager.saveBook(newBook)
         }
     }
-    // CHAPTERS
+
+// CHAPTERS
     val chaptersList = selectedBook
         .flatMapLatest { book ->
             bibleDao.getChapterCount(book)
@@ -174,6 +115,47 @@ class VerseViewModel(private val bibleDao: BibleDao,
             initialValue = emptyList()
         )
 
+//////////    PART TWO //////////
+
+// SAVED
+    data class VerseShortcut(
+        val translation: String,
+        val book: String,
+        val chapter: Int
+    ){
+        val name: String get() = "$book $chapter ($translation)"
+    }
+
+    var savedShortcuts = settingsManager.shortcutsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val isSaved: StateFlow<Boolean> = combine(
+        selectedTranslation,
+        selectedBook,
+        selectedChapter,
+        savedShortcuts
+    ) { t, b, c, shortcut ->
+        shortcut.any { it.translation == t && it.book == b && it.chapter == c }
+    }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun toggleSaved(){
+        viewModelScope.launch {
+            settingsManager.toggleShortcut(
+                translation = selectedTranslation.value,
+                book = selectedBook.value,
+                chapter = selectedChapter.value
+            )
+        }
+    }
+
+    fun jumpToShortcut(shortcut: VerseShortcut){
+        updateTranslation(shortcut.translation)
+        updateBook(shortcut.book)
+        updateChapter(shortcut.chapter)
+    }
+
+
 // ORDERING
     val versesByOrder = combine(
         selectedTranslation,          // Flow 1
@@ -181,10 +163,68 @@ class VerseViewModel(private val bibleDao: BibleDao,
         selectedChapter // Flow 3
     ) { t, b, c ->
         Triple(t, b, c)
-    }.flatMapLatest { (t, b, c) ->
+    }
+        .flatMapLatest { (t, b, c) ->
         // Every time T, B, or C changes, this triggers a new Room query
         bibleDao.getVersesOrder(t, b, c)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+
+    // INPUT
+    val inputConfig: StateFlow<InputConfig>  = settingsManager.inputFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputConfig.ENABlED)
+    fun updateInput(newConfig: InputConfig) {
+        viewModelScope.launch {
+            settingsManager.saveInput(newConfig)
+        }
+    }
+    // NAVIGATION
+    fun nextVerse(totalVerses: Int){
+        if (_currentVerseIndex.value < totalVerses - 1) {
+            _currentVerseIndex.value++
+        } else {
+            resetIndex()
+        }
+    }
+    fun previousVerse(){
+        if (_currentVerseIndex.value > 0) {
+            _currentVerseIndex.value-- }
+    }
+    // RELOAD
+    val _reloadTrigger = MutableStateFlow(0)
+    val reloadTrigger = _reloadTrigger.asStateFlow()
+    fun reloadTrigger(){
+        _reloadTrigger.value++
+    }
+    // THEME
+    val themeConfig: StateFlow<ThemeConfig> = settingsManager.themeFlow
+        .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ThemeConfig.FOLLOW_SYSTEM)
+    fun updateTheme(newConfig: ThemeConfig) {
+        viewModelScope.launch {
+            settingsManager.saveTheme(newConfig)
+        }
+    }
+    // STYLE
+    val styleConfig: StateFlow<StyleConfig> = settingsManager.styleFlow
+        .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000),
+            initialValue = StyleConfig.ORDER)
+    fun updateStyle(newConfig: StyleConfig) {
+        viewModelScope.launch {
+            settingsManager.saveStyle(newConfig)
+        }
+    }
+    // DIFFICULTIES
+    val difficultiesText = listOf<String>("Easy", "Medium", "Hard")
+    var selectedDifficulty = settingsManager.difficultyFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Easy")
+    fun updateDifficulty(newDifficulty: String){
+        viewModelScope.launch {
+            settingsManager.saveDifficulty(newDifficulty)
+        }
+    }
+
 
 // INDEX
     private val _currentVerseIndex = MutableStateFlow(0)
@@ -193,9 +233,6 @@ class VerseViewModel(private val bibleDao: BibleDao,
         _currentVerseIndex.value = 0
     }
 }
-
-
-
 
 
 var userGuess by mutableStateOf(mapOf<Int, String>())
