@@ -1,10 +1,17 @@
 package com.example.versegenerator.ui.theme
 
+import com.example.versegenerator.R
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.Font
+
+val Garamond = FontFamily(
+    Font(R.font.eb_garamond_regular, FontWeight.Normal),
+    Font(R.font.eb_garamond_bold, FontWeight.Bold)
+)
 
 // Set of Material typography styles to start with
 val Typography = Typography(

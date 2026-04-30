@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -21,6 +22,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -29,7 +32,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -66,6 +72,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,6 +85,8 @@ import com.example.versegenerator.ViewModels.VerseViewModel
 import com.example.versegenerator.data.Verse
 import kotlin.collections.forEach
 import kotlin.compareTo
+
+
 
 @Composable
 fun SearchableSelector(
@@ -95,8 +104,9 @@ fun SearchableSelector(
 ) {
 
     Box(
-        modifier = modifier.fillMaxHeight(),
-        contentAlignment = Alignment.CenterStart
+        modifier = modifier
+            .height(48.dp),
+        contentAlignment = Alignment.Center
     ) {
         BasicTextField(
             value = query,
@@ -104,42 +114,40 @@ fun SearchableSelector(
             modifier = Modifier
                 .focusRequester(focusRequester)
                 .onFocusChanged {
-                    // This logic allows the parent to control
-                    // if focus should trigger an expansion
                     if (it.isFocused && query.isNotEmpty()) onExpandedChange(true)
                 }
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp),
+                .padding(horizontal = 5.dp),
             singleLine = true,
             keyboardOptions = keyboardOptions,
             keyboardActions = KeyboardActions(onDone = { onDone() }),
             textStyle = TextStyle(
-                fontFamily = FontFamily.Serif,
+                fontFamily = FontFamily.SansSerif,
                 fontSize = 18.sp,
-                color = MaterialTheme.colorScheme.onPrimary
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.5.sp,
+                color = MaterialTheme.colorScheme.onPrimary,
             ),
             decorationBox = { innerTextField ->
-                Box(
-                    contentAlignment = Alignment.CenterStart,
-                    modifier = modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        focusRequester.requestFocus()
-                        onExpandedChange(true)
-                    }) {
-                    if (query.isEmpty()) {
-                        Text(
-                            text = hintText,
-                            fontFamily = FontFamily.Serif,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
+                    Box(modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                                focusRequester.requestFocus()
+                                onExpandedChange(true) }) {
+                        if (query.isEmpty()) {
+                            Text(
+                                text = hintText,
+                                modifier = Modifier.fillMaxWidth(),
+                                fontFamily = FontFamily.SansSerif,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 18.sp,
+                                color = Color(0xFF7298C7),
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                        innerTextField()
                     }
-                    innerTextField()
                 }
-            }
         )
 
         // The Tiny Anchor for the Dropdown
@@ -172,6 +180,7 @@ fun SelectionSearcher(
     isFavorite: Boolean,
     shortcuts: List<VerseViewModel.VerseShortcut>
 ) {
+
     val focusManager = LocalFocusManager.current
 
 
@@ -179,121 +188,128 @@ fun SelectionSearcher(
     val chapterFocusRequester = remember { FocusRequester() }
 
     val books by viewModel.filteredBooks.collectAsStateWithLifecycle()
+    val books2 by viewModel.finalBooksToDisplay.collectAsStateWithLifecycle()
     val chapters by viewModel.filteredChapters.collectAsStateWithLifecycle()
 
     var firstExpanded by remember { mutableStateOf(false) }
     var secondExpanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 5.dp, end = 25.dp)
-                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
-                .border(2.dp, Color.Black, RoundedCornerShape(8.dp))
-                .height(50.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(horizontalArrangement = Arrangement.Center) {
+            Row(modifier = Modifier.weight(0.7f).padding(start = 60.dp),
+                horizontalArrangement = Arrangement.Center) {
 
-            // --- BOOK SELECTOR ---
-            SearchableSelector(
-                focusRequester = bookFocusRequester,
-                modifier = Modifier.weight(0.6f),
-                query = viewModel.bookQuery,
-                onQueryChange = {
-                    viewModel.bookChange(it)
-                    // Only expand the book list when the user is actually typing
-                    firstExpanded = it.isNotEmpty()
-                },
-                onDone = {
-                    val match = books.find { it.equals(viewModel.bookQuery, ignoreCase = true) }
-                        ?: books.firstOrNull()
-                    if (match != null) {
-                        viewModel.updateBook(match)
-                        viewModel.bookChange("")
-                        firstExpanded = false
-
-                        chapterFocusRequester.requestFocus()
-                        secondExpanded = true
-                    }
-                },
-                hintText = book,
-                expanded = firstExpanded,
-                onExpandedChange = {
-                    if (viewModel.bookQuery.isNotEmpty()) firstExpanded = it },
-                onDismissRequest = { firstExpanded = false },
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words,
-                    imeAction = ImeAction.Done
-                )
-            ) {
-                books.forEach { bookName ->
-                    DropdownMenuItem(
-                        text = { Text(bookName, color = Color.Black) },
-                        onClick = {
-                            viewModel.updateBook(bookName)
-                            viewModel.updateChapter(1)
+                // --- BOOK SELECTOR ---
+                SearchableSelector(
+                    focusRequester = bookFocusRequester,
+                    modifier = Modifier
+                        .width(IntrinsicSize.Max)
+                        .onFocusChanged(
+                        { viewModel.bookQuery = "" }
+                    ),
+                    query = viewModel.bookQuery,
+                    onQueryChange = {
+                        viewModel.bookChange(it)
+                        firstExpanded = true
+                    },
+                    onDone = {
+                        val match = books.find { it.equals(viewModel.bookQuery, ignoreCase = true) }
+                            ?: books.firstOrNull()
+                        if (match != null) {
+                            viewModel.updateBook(match)
                             viewModel.bookChange("")
+                            viewModel.resetIndex()
                             firstExpanded = false
 
                             chapterFocusRequester.requestFocus()
                             secondExpanded = true
                         }
+                    },
+                    hintText = book,
+                    expanded = firstExpanded,
+                    onExpandedChange = { firstExpanded = it },
+                    onDismissRequest = {
+                        firstExpanded = false
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words,
+                        imeAction = ImeAction.Done
                     )
-                }
-            }
+                ) {
+                    books.forEach { bookName ->
+                        DropdownMenuItem(
+                            text = { Text(bookName, color = Color.Black) },
+                            onClick = {
+                                viewModel.updateBook(bookName)
+                                viewModel.updateChapter(1)
+                                viewModel.bookChange("")
+                                viewModel.resetIndex()
+                                firstExpanded = false
 
-            // --- CHAPTER SELECTOR ---
-            SearchableSelector(
-                focusRequester = chapterFocusRequester,
-                modifier = Modifier.weight(0.2f),
-                query = viewModel.chapterQuery,
-                onQueryChange = {
-                    if (it.length <= 2) {
-                        viewModel.chapterChange(it)
-                        // Chapters expand immediately on any change
-                        secondExpanded = true
+                                chapterFocusRequester.requestFocus()
+                                secondExpanded = true
+                            }
+                        )
                     }
-                },
-                onDone = {
-                    val inputInt = viewModel.chapterQuery.toIntOrNull()
-                    if (inputInt != null && chapters.contains(inputInt)) {
-                        viewModel.updateChapter(inputInt)
-                        secondExpanded = false
-                        viewModel.chapterChange("")
-                        focusManager.clearFocus()
-                    }
-                },
-                hintText = "$chapter",
-                expanded = secondExpanded,
-                // For chapters, we allow the dropdown to trigger on focus too
-                onExpandedChange = { secondExpanded = it },
-                onDismissRequest = { secondExpanded = false },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Done
-                )
-            ) {
-                chapters.forEach { chapterNum ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = chapterNum.toString(),
-                                color = Color.Black,
-                                fontFamily = FontFamily.Serif
-                            )
-                        },
-                        onClick = {
-                            viewModel.updateChapter(chapterNum)
+                }
+
+                // --- CHAPTER SELECTOR ---
+                SearchableSelector(
+                    focusRequester = chapterFocusRequester,
+                    modifier = Modifier.weight(0.2f)
+                        .onFocusChanged( {
+                            viewModel.chapterQuery = ""
+                        }),
+                    query = viewModel.chapterQuery,
+                    onQueryChange = {
+                        if (it.length <= 2) {
+                            viewModel.chapterChange(it)
+                            secondExpanded = true
+                        }
+                    },
+                    onDone = {
+                        val inputInt = viewModel.chapterQuery.toIntOrNull()
+                        if (inputInt != null && chapters.contains(inputInt)) {
+                            viewModel.updateChapter(inputInt)
                             viewModel.chapterChange("")
                             secondExpanded = false
+                            viewModel.resetIndex()
                             focusManager.clearFocus()
                         }
+                    },
+                    hintText = "$chapter",
+                    expanded = secondExpanded,
+                    // For chapters, we allow the dropdown to trigger on focus too
+                    onExpandedChange = { secondExpanded = it },
+                    onDismissRequest = { secondExpanded = false },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
                     )
+                ) {
+                    chapters.forEach { chapterNum ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = chapterNum.toString(),
+                                    color = Color.Black,
+                                    fontFamily = FontFamily.Serif,
+                                )
+                            },
+                            onClick = {
+                                viewModel.updateChapter(chapterNum)
+                                viewModel.chapterChange("")
+                                secondExpanded = false
+
+                                viewModel.resetIndex()
+                                focusManager.clearFocus()
+                            }
+                        )
+                    }
                 }
             }
             SelectionFavorites(
-                modifier = Modifier.weight(0.2f),
+                modifier = Modifier.weight(0.3f),
                 isFavorite = isFavorite,
                 onToggle = { viewModel.toggleSaved() },
                 shortcuts = shortcuts,
@@ -321,14 +337,13 @@ fun SelectionFavorites(
 
     Box(
         modifier
-            .fillMaxWidth()
-            .padding(vertical = 15.dp)
-    )
+            .fillMaxWidth().padding(end = 15.dp),
+        contentAlignment = Alignment.CenterEnd)
     {
         LongClickIconButton(
             icon = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
             contentDescription = "Saved chapters!",
-            tint = if (isFavorite) Color.Red else Color.Gray,
+            tint = if (isFavorite) Color(0xFF7298C7) else Color.Gray,
             onClick = { menuExpanded = true },
             onLongClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -343,7 +358,7 @@ fun SelectionFavorites(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            "No saved verses",
+                            "No saved chapters",
                             style = MaterialTheme.typography.bodySmall
                         )
                     },
@@ -377,7 +392,7 @@ fun LongClickIconButton(
     Box(
         modifier = Modifier
             .minimumInteractiveComponentSize() // Ensures 48dp touch target
-            .size(40.dp) // Standard IconButton size
+            .size(48.dp) // Standard IconButton size
             .clip(CircleShape) // For the ripple effect shape
             .combinedClickable(
                 onClick = onClick,
@@ -403,16 +418,10 @@ fun SelectionMenu(modifier: Modifier = Modifier, viewModel: VerseViewModel, book
     var stage by viewModel.stage
 
     Box(modifier
-        .fillMaxSize()
-        .padding(horizontal = 15.dp)
-        .padding(start = 25.dp)
-        .padding(vertical = 10.dp)
-        .border(width = 1.dp, color = Color.DarkGray, shape = CircleShape)
-    )
-    {
-
-        IconButton(onClick = { menuExpanded = true }, modifier.fillMaxSize()) {
-            Icon(Icons.Default.Add, contentDescription = "Open Settings")
+        .fillMaxWidth().padding(start = 15.dp)) {
+        IconButton(onClick = { menuExpanded = true }) {
+            Icon(Icons.Outlined.Menu, contentDescription = "Open Settings",
+                tint = Color(0xFF4A6572))
         }
 
         DropdownMenu(
@@ -420,7 +429,7 @@ fun SelectionMenu(modifier: Modifier = Modifier, viewModel: VerseViewModel, book
             onDismissRequest = { menuExpanded = false },
             modifier = Modifier
                 .width(300.dp)
-                .border(2.dp, Color.Black, RoundedCornerShape(8.dp)),
+                .border(1.dp, Color.Gray, RoundedCornerShape(8.dp)),
             containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(modifier = Modifier.padding(5.dp)) {

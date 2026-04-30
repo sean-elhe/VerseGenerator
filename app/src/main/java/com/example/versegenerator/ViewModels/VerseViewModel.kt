@@ -10,6 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.versegenerator.SettingsManager
 import com.example.versegenerator.data.BibleDao
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,10 +18,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class VerseViewModel(private val bibleDao: BibleDao,
@@ -28,22 +31,71 @@ class VerseViewModel(private val bibleDao: BibleDao,
     private val settingsManager = SettingsManager(application)
     var stage = mutableIntStateOf(1)
 
+
 // QUERY
-    var bookQuery by mutableStateOf("")
     var chapterQuery by mutableStateOf("")
 
+    private val allBooks = bibleDao.getAllBooks()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     val filteredBooks: StateFlow<List<String>> = snapshotFlow { bookQuery }
-        .debounce(300)
+        .debounce(100)
         .distinctUntilChanged()
         .flatMapLatest { query ->
-            if (query.isBlank()) flowOf(emptyList())
-            else bibleDao.searchBooks("$query%")
+            if (query.isBlank())
+                allBooks
+            else {
+                bibleDao.searchBook("$query%")
+            }
         }
         .stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5000),
             emptyList()
         )
+
+    var bookQuery by mutableStateOf("")
+
+    private val _bookQuery = MutableStateFlow("")
+    private val _displayedBooks = MutableStateFlow<List<String>>(emptyList())
+
+    // Correct Setup
+    val finalBooksToDisplay: StateFlow<List<String>> = combine(
+        _bookQuery,        // Pass the Flow, NOT _bookQuery.value
+        _displayedBooks    // Pass the Flow, NOT _displayedBooks.value
+    ) { query, preloaded ->
+        if (query.isBlank()) {
+            preloaded
+        } else {
+            preloaded.filter { it.contains(query, ignoreCase = true) }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    init {
+        preloadFromDatabase()
+    }
+
+    private fun preloadFromDatabase() {
+        viewModelScope.launch {
+
+            val allBooksList: List<String> = bibleDao.getAllBooks().first()
+
+            _displayedBooks.value = emptyList()
+
+            allBooksList.chunked(11).forEach { chunk ->
+                _displayedBooks.update { current -> current + chunk }
+                delay(60)
+            }
+        }
+    }
+
+
+
+
     fun bookChange(newQuery: String){
         bookQuery = newQuery
     }
@@ -172,58 +224,58 @@ class VerseViewModel(private val bibleDao: BibleDao,
 
 
     // INPUT
-    val inputConfig: StateFlow<InputConfig>  = settingsManager.inputFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputConfig.ENABlED)
-    fun updateInput(newConfig: InputConfig) {
-        viewModelScope.launch {
-            settingsManager.saveInput(newConfig)
+        val inputConfig: StateFlow<InputConfig>  = settingsManager.inputFlow
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputConfig.ENABlED)
+        fun updateInput(newConfig: InputConfig) {
+            viewModelScope.launch {
+                settingsManager.saveInput(newConfig)
+            }
         }
-    }
-    // NAVIGATION
-    fun nextVerse(totalVerses: Int){
-        if (_currentVerseIndex.value < totalVerses - 1) {
-            _currentVerseIndex.value++
-        } else {
-            resetIndex()
+        // NAVIGATION
+        fun nextVerse(totalVerses: Int){
+            if (_currentVerseIndex.value < totalVerses - 1) {
+                _currentVerseIndex.value++
+            } else {
+                resetIndex()
+            }
         }
-    }
-    fun previousVerse(){
-        if (_currentVerseIndex.value > 0) {
-            _currentVerseIndex.value-- }
-    }
+        fun previousVerse(){
+            if (_currentVerseIndex.value > 0) {
+                _currentVerseIndex.value-- }
+        }
     // RELOAD
-    val _reloadTrigger = MutableStateFlow(0)
-    val reloadTrigger = _reloadTrigger.asStateFlow()
-    fun reloadTrigger(){
-        _reloadTrigger.value++
-    }
-    // THEME
-    val themeConfig: StateFlow<ThemeConfig> = settingsManager.themeFlow
-        .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000),
-            initialValue = ThemeConfig.FOLLOW_SYSTEM)
-    fun updateTheme(newConfig: ThemeConfig) {
-        viewModelScope.launch {
-            settingsManager.saveTheme(newConfig)
+        val _reloadTrigger = MutableStateFlow(0)
+        val reloadTrigger = _reloadTrigger.asStateFlow()
+        fun reloadTrigger(){
+            _reloadTrigger.value++
         }
-    }
+        // THEME
+        val themeConfig: StateFlow<ThemeConfig> = settingsManager.themeFlow
+            .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000),
+                initialValue = ThemeConfig.FOLLOW_SYSTEM)
+        fun updateTheme(newConfig: ThemeConfig) {
+            viewModelScope.launch {
+                settingsManager.saveTheme(newConfig)
+            }
+        }
     // STYLE
-    val styleConfig: StateFlow<StyleConfig> = settingsManager.styleFlow
-        .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000),
-            initialValue = StyleConfig.ORDER)
-    fun updateStyle(newConfig: StyleConfig) {
-        viewModelScope.launch {
-            settingsManager.saveStyle(newConfig)
+        val styleConfig: StateFlow<StyleConfig> = settingsManager.styleFlow
+            .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000),
+                initialValue = StyleConfig.ORDER)
+        fun updateStyle(newConfig: StyleConfig) {
+            viewModelScope.launch {
+                settingsManager.saveStyle(newConfig)
+            }
         }
-    }
     // DIFFICULTIES
-    val difficultiesText = listOf<String>("Easy", "Medium", "Hard")
-    var selectedDifficulty = settingsManager.difficultyFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Easy")
-    fun updateDifficulty(newDifficulty: String){
-        viewModelScope.launch {
-            settingsManager.saveDifficulty(newDifficulty)
+        val difficultiesText = listOf<String>("Easy", "Medium", "Hard")
+        var selectedDifficulty = settingsManager.difficultyFlow
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Easy")
+        fun updateDifficulty(newDifficulty: String){
+            viewModelScope.launch {
+                settingsManager.saveDifficulty(newDifficulty)
+            }
         }
-    }
 
 
 // INDEX

@@ -36,6 +36,13 @@ interface BibleDao {
 """)
     fun searchChapter(searchQuery: String, book: String): Flow<List<Int>>
 
+    @Query("""
+    SELECT DISTINCT book FROM verses 
+    WHERE (:searchQuery = '' OR book LIKE :searchQuery || '%' COLLATE NOCASE)
+    ORDER BY book_id ASC
+""")
+    fun searchBook(searchQuery: String): Flow<List<String>>
+
 
     // SAVED
 
