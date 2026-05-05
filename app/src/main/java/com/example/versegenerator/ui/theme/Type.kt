@@ -13,6 +13,12 @@ val Garamond = FontFamily(
     Font(R.font.eb_garamond_bold, FontWeight.Bold)
 )
 
+val PlayFair = FontFamily(
+        Font(R.font.playfairdisplayregular, FontWeight.Normal),
+    Font(R.font.playfairdisplaybold, FontWeight.Bold)
+)
+
+
 // Set of Material typography styles to start with
 val Typography = Typography(
     bodyLarge = TextStyle(

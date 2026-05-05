@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -32,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.LinearGradientShader
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -45,11 +47,12 @@ import com.example.versegenerator.ViewModels.VerseViewModel
 import com.example.versegenerator.data.Verse
 
 @Composable
-fun SelectionScreen(viewModel: VerseViewModel, modifier: Modifier) {
+fun SelectionScreen(viewModel: VerseViewModel, modifier: Modifier, onFinished: () -> Unit) {
     // Collect all states in ONE place
     val books by viewModel.booksList.collectAsStateWithLifecycle()
     val chapters by viewModel.chaptersList.collectAsStateWithLifecycle()
     val versesOrder by viewModel.versesByOrder.collectAsStateWithLifecycle()
+    val versesRandom by viewModel.versesByRandom.collectAsStateWithLifecycle()
     val currentIndex by viewModel.currentVerseIndex.collectAsStateWithLifecycle()
     val reloadKey by viewModel.reloadTrigger.collectAsStateWithLifecycle()
     val themeState by viewModel.themeConfig.collectAsStateWithLifecycle()
@@ -83,11 +86,10 @@ fun SelectionScreen(viewModel: VerseViewModel, modifier: Modifier) {
             )
         })
     {
-        Row(modifier = Modifier.height(75.dp).fillMaxWidth()) {
+        Row(modifier = Modifier.height(60.dp).fillMaxWidth()) {
             Card(
-                modifier = Modifier.fillMaxWidth().padding(top = 15.dp),
+                modifier = Modifier.fillMaxWidth().padding(5.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-//                elevation = CardDefaults.elevatedCardElevation(20.dp),
             ) {
                 Row() {
                     SelectionMenu(
@@ -109,9 +111,12 @@ fun SelectionScreen(viewModel: VerseViewModel, modifier: Modifier) {
         HorizontalDivider(modifier = Modifier.height(1.dp), color = Color.Gray)
 
         Row(modifier = Modifier.weight(0.1f).fillMaxWidth()) {
+
             VerseDisplayContainer(
                 viewModel = viewModel,
                 versesOrder = versesOrder,
+                versesRandom = versesRandom,
+                onFinished = onFinished,
                 currentIndex = currentIndex,
                 isRandom = isRandom,
                 isQuick = isQuick,
@@ -122,6 +127,7 @@ fun SelectionScreen(viewModel: VerseViewModel, modifier: Modifier) {
                 reloadKey = reloadKey,
                 stage = stage
             )
+
         }
     }
 }
@@ -129,7 +135,9 @@ fun SelectionScreen(viewModel: VerseViewModel, modifier: Modifier) {
 @Composable
 fun VerseDisplayContainer(
     viewModel: VerseViewModel,
-    versesOrder: List<Verse>, // Replace 'Verse' with your actual Model class name
+    versesOrder: List<Verse>,
+    versesRandom: List<Verse>,
+    onFinished: () -> Unit,
     currentIndex: Int,
     isRandom: Boolean,
     isQuick: Boolean,
@@ -138,27 +146,33 @@ fun VerseDisplayContainer(
     book: String,
     chapter: Int,
     reloadKey: Any,
-    stage: Int
+    stage: Int,
 ) {
     val verses = remember(isRandom, versesOrder) {
-        if (isRandom) versesOrder.shuffled() else versesOrder.toList()
+        if (isRandom) versesRandom.toList() else versesOrder.toList()
     }
+
 
     val currentVerse = verses.getOrNull(currentIndex)
     val totalVerses = verses.size
 
     val progress = if (totalVerses > 1) {
-        currentIndex.toFloat() / (totalVerses - 1)
+        currentIndex.toFloat() / (totalVerses)
     } else {
         0f
     }
 
     val isFirstVerse = currentIndex == 0
 
+    LaunchedEffect(currentVerse) {
+        viewModel.startVerseTime()
+        viewModel.startChapterTime()
+    }
+
     if (currentVerse != null) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Row(modifier = Modifier.fillMaxWidth().weight(0.08f).background(color = MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 32.dp, vertical = 12.dp),
+            Row(modifier = Modifier.fillMaxWidth().weight(0.06f).background(color = MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 20.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically)
             {
                 Text("${currentVerse.chapter}:${currentVerse.verse}",
@@ -174,42 +188,36 @@ fun VerseDisplayContainer(
                     .height(6.dp)
                     .clip(RoundedCornerShape(50)),
                     color = if (isFirstVerse) Color.LightGray else Color(0xFF7298C7),
-                    trackColor = if (isFirstVerse) Color.LightGray.copy(alpha = 0.3f) else Color.LightGray.copy(alpha = 0.5f) ,
-//                    strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                    trackColor = if (isFirstVerse) Color(0xFF7298C7).copy(alpha = 0.3f) else Color(0xFF7298C7).copy(alpha = 0.5f) ,
+                    strokeCap = StrokeCap.Round,
+                    gapSize = - 2.dp,          // Removes the gap between active and inactive parts
+                    drawStopIndicator = {}    // Removes the little "stop" square at the end
                 )
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Text(
-                    text = "${currentVerse.verse - 1}/${totalVerses}",
+                    text = "${currentIndex}/${totalVerses}",
                     fontSize = 14.sp,
                     color = Color(0xFF7298C7)
                 )
             }
             HorizontalDivider(modifier = Modifier.height(1.dp), color = Color.Gray)
+// STATUS SCREEN
+
 
             Card(
-                modifier = Modifier.fillMaxWidth().weight(0.92f),
+                modifier = Modifier.fillMaxWidth().weight(0.88f),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
 //                elevation = CardDefaults.elevatedCardElevation(20.dp),
             ) {
-                // Header Logic
-                if (isQuick) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(top = 20.dp, start = 20.dp), horizontalArrangement = Arrangement.Start) {
-//                        Text("${currentVerse.chapter}:${currentVerse.verse}", style = MaterialTheme.typography.bodyLarge, color = Color(0xFF7298C7) )
-                    }
-                } else {
-                    Row(modifier = Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.Center) {
-                        Text("${currentVerse.book} ${currentVerse.chapter}:${currentVerse.verse}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
-                    }
-                }
 
                 // Content Logic
-                Box(modifier = Modifier.fillMaxWidth().padding(5.dp)) {
+                Box(modifier = Modifier.fillMaxWidth()) {
                     if (isQuick) {
                         val verseData = remember(currentVerse, difficulty, reloadKey) {
                             ReplacingWordsIE(text = currentVerse.text, difficultyLevel = difficulty)
                         }
-                        YourVerseIE(stage, verseData, viewModel, versesOrder)
+                        YourVerseIE(stage, verseData, viewModel, versesOrder, onFinished)
                     } else {
                         val verseData = remember(currentVerse, difficulty, reloadKey) {
                             ReplacingWordsID(currentVerse.text, difficulty)
@@ -222,7 +230,7 @@ fun VerseDisplayContainer(
 
         }
     } else {
-        Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
     }

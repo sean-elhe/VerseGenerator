@@ -3,6 +3,7 @@ package com.example.versegenerator.ViewModels
 import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -10,6 +11,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.versegenerator.SettingsManager
 import com.example.versegenerator.data.BibleDao
+import com.example.versegenerator.data.Verse
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,6 +32,71 @@ class VerseViewModel(private val bibleDao: BibleDao,
                         application: Application): AndroidViewModel(application) {
     private val settingsManager = SettingsManager(application)
     var stage = mutableIntStateOf(1)
+
+    private val _verseScores = mutableStateListOf<VerseScore>()
+    val verseScores: List<VerseScore> = _verseScores
+
+    val quizScore: QuizScore?
+        get() = if (_verseScores.isEmpty()) null
+        else QuizScore(
+            totalCorrect = verseScores.sumOf { it.correct },
+            totalWords = verseScores.sumOf { it.total },
+            verseScores = verseScores,
+            totalTime = verseScores.sumOf { it.timeMillis }
+        )
+
+    fun saveVerseScore(score: VerseScore) {
+        _verseScores.removeAll { it.verseNumber == score.verseNumber }
+        _verseScores.add(score)
+    }
+
+    fun resetScores() {
+        _verseScores.clear()
+    }
+    data class VerseScore(
+        val verseNumber: Int,
+        val correct: Int,
+        val total: Int,
+        val timeMillis: Long
+    ) {
+        val percentage: Float
+            get() = if (total == 0) 0f else (correct.toFloat() / total * 100)
+    }
+
+    data class QuizScore(
+        val totalCorrect: Int,
+        val totalWords: Int,
+        val verseScores: List<VerseScore>,
+        val totalTime: Long
+    ) {
+        val percentage: Float
+            get() = if (totalWords == 0) 0f else (totalCorrect.toFloat() / totalWords * 100)
+    }
+
+    private var chapterStartTime: Long = 0L
+    private var verseStartTime: Long = 0L
+
+    fun startChapterTime(){
+        chapterStartTime = System.currentTimeMillis()
+    }
+    fun startVerseTime(){
+        verseStartTime = System.currentTimeMillis()
+    }
+
+    fun getElapsedChapterMillis(): Long{
+        return System.currentTimeMillis() - chapterStartTime
+     }
+    fun getElapsedVerseTime(): Long {
+        return System.currentTimeMillis() - verseStartTime
+    }
+
+    fun formatTime(ms: Long): String {
+        val totalSeconds = ms / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+
+        return "%02d:%02d".format(minutes, seconds)
+    }
 
 
 // QUERY
@@ -59,7 +126,7 @@ class VerseViewModel(private val bibleDao: BibleDao,
     private val _bookQuery = MutableStateFlow("")
     private val _displayedBooks = MutableStateFlow<List<String>>(emptyList())
 
-    // Correct Setup
+// Correct Setup
     val finalBooksToDisplay: StateFlow<List<String>> = combine(
         _bookQuery,        // Pass the Flow, NOT _bookQuery.value
         _displayedBooks    // Pass the Flow, NOT _displayedBooks.value
@@ -126,6 +193,7 @@ class VerseViewModel(private val bibleDao: BibleDao,
     fun updateBook(newBook: String){
         viewModelScope.launch {
             settingsManager.saveBook(newBook)
+            startChapterTime()
         }
     }
 
@@ -222,8 +290,44 @@ class VerseViewModel(private val bibleDao: BibleDao,
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val versesByRandom = combine(
+        selectedTranslation,
+        selectedBook,
+        selectedChapter
+    ) { t, b, c -> Triple(t, b, c) }
+        .flatMapLatest { (t, b, c) ->
+            bibleDao.getVersesOrder(t, b, c)
+        }
+        .map { list ->
+            list.shuffled().ensureNoSequences()
+        }
+        .stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+        )
 
-    // INPUT
+    private fun List<Verse>.ensureNoSequences(): List<Verse> {
+        if (this.size <= 1) return this
+
+        var shuffledList = this
+        var hasSequence = true
+        var attempts = 0
+
+        while(hasSequence && attempts < 10) {
+            hasSequence = false
+            for (i in 0 until shuffledList.size - 1) {
+                if(shuffledList[i+1].verse == shuffledList[i].verse + 1 ){
+                    hasSequence = true
+                    shuffledList = shuffledList.shuffled()
+                    attempts++
+                    break
+                }
+            }
+        }
+        return shuffledList
+    }
+
+
+// INPUT
         val inputConfig: StateFlow<InputConfig>  = settingsManager.inputFlow
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InputConfig.ENABlED)
         fun updateInput(newConfig: InputConfig) {
@@ -231,25 +335,26 @@ class VerseViewModel(private val bibleDao: BibleDao,
                 settingsManager.saveInput(newConfig)
             }
         }
-        // NAVIGATION
-        fun nextVerse(totalVerses: Int){
+// NAVIGATION
+        fun nextVerse(totalVerses: Int, onFinished: () -> Unit){
             if (_currentVerseIndex.value < totalVerses - 1) {
                 _currentVerseIndex.value++
+                startVerseTime()
             } else {
-                resetIndex()
+                onFinished()
             }
         }
         fun previousVerse(){
             if (_currentVerseIndex.value > 0) {
                 _currentVerseIndex.value-- }
         }
-    // RELOAD
+// RELOAD
         val _reloadTrigger = MutableStateFlow(0)
         val reloadTrigger = _reloadTrigger.asStateFlow()
         fun reloadTrigger(){
             _reloadTrigger.value++
         }
-        // THEME
+// THEME
         val themeConfig: StateFlow<ThemeConfig> = settingsManager.themeFlow
             .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000),
                 initialValue = ThemeConfig.FOLLOW_SYSTEM)
@@ -258,7 +363,7 @@ class VerseViewModel(private val bibleDao: BibleDao,
                 settingsManager.saveTheme(newConfig)
             }
         }
-    // STYLE
+// STYLE
         val styleConfig: StateFlow<StyleConfig> = settingsManager.styleFlow
             .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000),
                 initialValue = StyleConfig.ORDER)
@@ -267,7 +372,7 @@ class VerseViewModel(private val bibleDao: BibleDao,
                 settingsManager.saveStyle(newConfig)
             }
         }
-    // DIFFICULTIES
+// DIFFICULTIES
         val difficultiesText = listOf<String>("Easy", "Medium", "Hard")
         var selectedDifficulty = settingsManager.difficultyFlow
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Easy")
@@ -277,23 +382,25 @@ class VerseViewModel(private val bibleDao: BibleDao,
             }
         }
 
+// HINTS
+    private val _hintsUsed = MutableStateFlow(0)
+    val hintsUsed = _hintsUsed.asStateFlow()
+    fun incrementHints(){
+        _hintsUsed.value++
+    }
+    fun resetHints(){
+        _hintsUsed.value = 0
+    }
+
 
 // INDEX
+
     private val _currentVerseIndex = MutableStateFlow(0)
     val currentVerseIndex = _currentVerseIndex.asStateFlow()
     fun resetIndex(){
         _currentVerseIndex.value = 0
     }
 }
-
-
-var userGuess by mutableStateOf(mapOf<Int, String>())
-var resultShown by mutableStateOf(false)
-
-fun updateGuess(index: Int, text: String){
-    userGuess = userGuess + (index to text)
-}
-
 
 
 enum class ThemeConfig{

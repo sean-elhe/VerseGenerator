@@ -1,6 +1,7 @@
 package com.example.versegenerator.SelectionScreen
 
 import android.R
+import android.graphics.drawable.shapes.RectShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,7 +35,11 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.ArrowRightAlt
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.Redo
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,6 +63,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextRange
@@ -65,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.versegenerator.AppNavigation
 import com.example.versegenerator.ViewModels.VerseViewModel
 import com.example.versegenerator.data.Verse
 
@@ -95,14 +102,15 @@ fun SelectionButton(clicked: () -> Unit, icon: ImageVector, tint: Color) {
 @Composable
 fun HintButton(selectedIndex: Int?, verseDisplayer: VerseDisplayIE,
                userInputs: SnapshotStateMap<Int, TextFieldValue>,
-               focusRequesters: Map<Int, FocusRequester>
+               focusRequesters: Map<Int, FocusRequester>,
+               viewModel: VerseViewModel
 ){
     Card(
-//        elevation = CardDefaults.elevatedCardElevation(15.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = CircleShape) {
+        shape = RoundedCornerShape(8.dp)) {
         IconButton(
             onClick = {
+                viewModel.incrementHints()
                 val index = selectedIndex ?: return@IconButton
 
                 val verseWord = verseDisplayer.wordList.firstOrNull { it.index == index }
@@ -123,16 +131,111 @@ fun HintButton(selectedIndex: Int?, verseDisplayer: VerseDisplayIE,
                 }
             },
             modifier = Modifier
-            .size(44.dp)
-            .shadow(4.dp, RoundedCornerShape(14.dp))
-            .clip(RoundedCornerShape(14.dp))
+            .size(22.dp)
+            .border(1.dp, Color(0xFF7298C7), RoundedCornerShape(8.dp))
+            .shadow(4.dp, RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(Color.White)
         ) {
             Icon(
                 imageVector = Icons.Outlined.Lightbulb,
                 contentDescription = null,
                 tint = Color(0xFF7298C7),
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun RestartButton(userInputs: SnapshotStateMap<Int, TextFieldValue>, viewModel: VerseViewModel
+){
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(8.dp)) {
+        IconButton(
+            onClick = {
+                viewModel.resetIndex()
+                viewModel.resetScores()
+                viewModel.resetHints()
+                      },
+            modifier = Modifier
+                .size(22.dp)
+                .border(1.dp, Color(0xFF7298C7), RoundedCornerShape(8.dp))
+                .shadow(4.dp, RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Refresh,
+                contentDescription = null,
+                tint = Color(0xFF7298C7),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun SubmitButton(viewModel: VerseViewModel, versesOrder: List<Verse>,
+                 onFinished: () -> Unit, verseDisplayer: VerseDisplayIE,
+                 userInputs: SnapshotStateMap<Int, TextFieldValue>,
+                 selectedIndex: Int?)
+{
+    var stage by viewModel.stage
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(8.dp)) {
+        IconButton(
+            onClick = {
+//                val score = calculateVerseScore(
+//                    verseNumber = viewModel.currentVerseIndex.value + 1,
+//                    verseDisplay = verseDisplayer,
+//                    userInputs = userInputs,
+//                    timeMillis = viewModel.getElapsedVerseTime())
+//                val timedScore = score.copy(
+//                    timeMillis = viewModel.getElapsedVerseTime())
+//                viewModel.saveVerseScore(timedScore)
+                onFinished()
+                      },
+            modifier = Modifier
+                .size(22.dp)
+                .border(1.dp, Color(0xFF7298C7), RoundedCornerShape(8.dp))
+                .shadow(4.dp, RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Send,
+                contentDescription = null,
+                tint = Color(0xFF7298C7),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+@Composable
+fun ClearButton(userInputs: SnapshotStateMap<Int, TextFieldValue>, viewModel: VerseViewModel
+){
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(8.dp)) {
+        IconButton(
+            onClick = {
+                userInputs.values.clear()
+            },
+            modifier = Modifier
+                .size(22.dp)
+                .border(1.dp, Color(0xFF7298C7), RoundedCornerShape(8.dp))
+                .shadow(4.dp, RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Delete,
+                contentDescription = null,
+                tint = Color(0xFF7298C7),
+                modifier = Modifier.size(16.dp)
             )
         }
     }
@@ -140,9 +243,10 @@ fun HintButton(selectedIndex: Int?, verseDisplayer: VerseDisplayIE,
 
 @Composable
 fun ControlButtons(viewModel: VerseViewModel, versesOrder: List<Verse>,
+                   onFinished: () -> Unit,
                    selectedIndex: Int?, verseDisplayer: VerseDisplayIE,
                    userInputs: SnapshotStateMap<Int, TextFieldValue>,
-                   focusRequesters: Map<Int, FocusRequester>) {
+                   focusRequesters: Map<Int, FocusRequester>){
     var stage by viewModel.stage
 
     Row(
@@ -155,14 +259,13 @@ fun ControlButtons(viewModel: VerseViewModel, versesOrder: List<Verse>,
         horizontalArrangement = Arrangement.Center
     )
     {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(0.2f)) {
-            SelectionButton(clicked = {
-                stage = 1
-                viewModel.reloadTrigger()
-            }, icon = Icons.Outlined.Sync, tint = Color(0xFF7298C7))
-        }
-
-//        Spacer(modifier = Modifier.width(25.dp))
+//        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(0.2f)) {
+//            SelectionButton(clicked = {
+//                viewModel.resetIndex()
+//                viewModel.resetScores()
+//                viewModel.resetHints()
+//            }, icon = Icons.Outlined.Refresh, tint = Color(0xFF7298C7))
+//        }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(0.6f)) {
             Button(
@@ -170,7 +273,20 @@ fun ControlButtons(viewModel: VerseViewModel, versesOrder: List<Verse>,
                     if (stage == 1) {
                         stage = 2
                     } else {
-                        viewModel.nextVerse(versesOrder.size)
+                        val score = calculateVerseScore(
+                            verseNumber = viewModel.currentVerseIndex.value + 1,
+                            verseDisplay = verseDisplayer,
+                            userInputs = userInputs,
+                            timeMillis = viewModel.getElapsedVerseTime()
+                        )
+
+                        val timedScore = score.copy(
+                            timeMillis = viewModel.getElapsedVerseTime()
+                        )
+
+                        viewModel.saveVerseScore(timedScore)
+
+                        viewModel.nextVerse(versesOrder.size, onFinished)
                         stage = 1
                     }
                 },
@@ -201,40 +317,6 @@ fun ControlButtons(viewModel: VerseViewModel, versesOrder: List<Verse>,
                 }
             }
         }
-//        Spacer(modifier = Modifier.width(25.dp))
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(0.2f)) {
-            HintButton(
-                selectedIndex, verseDisplayer,
-                userInputs, focusRequesters
-            )
-        }
     }
 }
-
-//            SelectionButton(clicked = {
-//                if (stage == 2) {
-//                    stage = 1
-//                } else {
-//                    viewModel.previousVerse()
-//                    stage = 1
-//                }
-//            }, icon = Icons.Outlined.Lightbulb,
-//                tint = Color(0xFF7298C7))
-//        }
-
-//        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-//            SelectionButton(clicked = {
-//                if (stage == 1) {
-//                    stage = 2
-//                } else {
-//                    viewModel.nextVerse(versesOrder.size)
-//                    stage = 1
-//                }
-//            }, icon =
-//                Icons.Default.ArrowForward,
-//                tint = Color(0xFF4A6572))
-//            Spacer(modifier = Modifier.padding(5.dp))
-//            Text("Next", fontSize = 12.sp)
-//        }
-//    }

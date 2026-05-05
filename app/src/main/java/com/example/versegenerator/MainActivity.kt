@@ -27,6 +27,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.versegenerator.SelectionScreen.ScoreScreen
 import com.example.versegenerator.SelectionScreen.SelectionScreen
 import com.example.versegenerator.ViewModels.ThemeConfig
 import com.example.versegenerator.ViewModels.VerseViewModel
@@ -87,12 +88,16 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation (viewModel: VerseViewModel, themeConfig: ThemeConfig) {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = "second") {
-        composable(route = "second") {
+    NavHost(navController = navController, startDestination = "chapter") {
+        composable(route = "chapter") {
             SelectionScreen(
                 modifier = Modifier.fillMaxSize(),
-                viewModel = viewModel
+                viewModel = viewModel,
+                onFinished = { navController.navigate("score")}
             )
+        }
+        composable(route = "score"){
+            ScoreScreen(viewModel)
         }
     }
 }

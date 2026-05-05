@@ -83,6 +83,7 @@ import com.example.versegenerator.ViewModels.StyleConfig
 import com.example.versegenerator.ViewModels.ThemeConfig
 import com.example.versegenerator.ViewModels.VerseViewModel
 import com.example.versegenerator.data.Verse
+import com.example.versegenerator.ui.theme.PlayFair
 import kotlin.collections.forEach
 import kotlin.compareTo
 
@@ -139,9 +140,9 @@ fun SearchableSelector(
                                 text = hintText,
                                 modifier = Modifier.fillMaxWidth(),
                                 fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp,
-                                color = Color(0xFF7298C7),
+//                                color = Color(0xFF7298C7),
                                 letterSpacing = 0.5.sp
                             )
                         }
